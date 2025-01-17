@@ -1,6 +1,7 @@
 import sys
 import pygame
 import os
+import math
 
 def get_screen_size():
     """Возвращает размеры экрана в пикселях."""
@@ -28,9 +29,9 @@ def load_image(name, colorkey=None):
         image = image.convert_alpha()
     return image
 
-def load_and_scale_image(image_path, width, height):
+def load_and_scale_image(image_path, width, height, colorkey=None):
     """Загружает и масштабирует изображение до указанных размеров."""
-    original_image = load_image(image_path)
+    original_image = load_image(image_path, colorkey=None)
     scaled_image = pygame.transform.scale(original_image, (width, height))
     return scaled_image
 
@@ -68,7 +69,7 @@ class Music(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = (0, 0)
         self.mask = pygame.mask.from_surface(self.image)
-        self.is_music_on = True  # Флаг для отслеживания состояния музыки (по умолчанию False)
+        self.is_music_on = True  # Флаг для отслеживания состояния музыки
 
     def toggle_music(self):
         """Переключает состояние музыки и меняет изображение кнопки."""
@@ -90,8 +91,8 @@ class Music(pygame.sprite.Sprite):
         pygame.mixer.music.stop()
 
 class Mainhero(pygame.sprite.Sprite):
-    def __init__(self, *group):
-        super().__init__(*group)
+    def __init__(self, all_sprites):
+        super().__init__(all_sprites)
         original_image = load_image("myhero.png")
         scale_factor = 1
         self.image = pygame.transform.scale(
@@ -99,6 +100,7 @@ class Mainhero(pygame.sprite.Sprite):
             (int(original_image.get_width() * scale_factor), int(original_image.get_height() * scale_factor))
         )
         self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect.x = 10
         self.rect.y = 400
 
@@ -113,6 +115,31 @@ class Mainhero(pygame.sprite.Sprite):
             self.rect.top = 0
         if self.rect.bottom > screen_height:
             self.rect.bottom = screen_height
+
+
+class NPC(pygame.sprite.Sprite):
+    def __init__(self, all_sprites, name, x, y):
+        super().__init__(all_sprites)
+        original_image = load_image(name)
+        scale_factor = 1
+        self.image = pygame.transform.scale(
+            original_image,
+            (int(original_image.get_width() * scale_factor), int(original_image.get_height() * scale_factor))
+        )
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect.x = x
+        self.rect.y = y
+
+
+class DialogWindow(pygame.sprite.Sprite):
+    def __init__(self, all_sprites):
+        super().__init__(all_sprites)
+        screen_width, screen_height = get_screen_size()
+        self.image = load_and_scale_image("dialog_window.png", screen_width, screen_height // 2.5, -1)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (0, screen_height // 1.5)
+
 
 if __name__ == "__main__":
     pygame.init()
@@ -139,6 +166,7 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     running = True
     speed = 5
+    dialog_window = None  # Окно диалога
 
     # Включаем музыку при старте игры (если флаг is_music_on = True)
     bt_music.turn_music_on()
@@ -172,6 +200,7 @@ if __name__ == "__main__":
 
                         location1 = Button(all_sprites, "location1.png", "location1.png")
                         hero = Mainhero(all_sprites)
+                        npc1 = NPC(all_sprites, 'npc_1.png', 360, 210)
                         pygame.mouse.set_visible(False)
                         is_in_location1 = True
                 if bt_music.mask.get_at((event.pos[0] - bt_music.rect.x, event.pos[1] - bt_music.rect.y)):
@@ -179,6 +208,15 @@ if __name__ == "__main__":
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q and is_in_location1:
                     running = False
+                if event.key == pygame.K_e and is_in_location1:
+                    # Проверяем, находится ли игрок рядом с NPC
+                    if pygame.sprite.collide_rect(hero, npc1):
+                        # Создаем окно диалога
+                        dialog_window = DialogWindow(all_sprites)
+                if event.key == pygame.K_ESCAPE and dialog_window:
+                    # Закрываем окно диалога при нажатии ESC
+                    dialog_window.kill()
+                    dialog_window = None
 
         # Обновляем состояние кнопок при движении мыши
         mouse_pos = pygame.mouse.get_pos()
@@ -188,17 +226,46 @@ if __name__ == "__main__":
 
         keys = pygame.key.get_pressed()
         dx, dy = 0, 0
-        if keys[pygame.K_w]:
-            dy = -speed
-        if keys[pygame.K_s]:
-            dy = speed
-        if keys[pygame.K_a]:
-            dx = -speed
-        if keys[pygame.K_d]:
-            dx = speed
+        if 'hero' in locals() and not dialog_window:  # Движение заблокировано, если диалог активен
+            if keys[pygame.K_w]:
+                dy = -speed
+            if keys[pygame.K_s]:
+                dy = speed
+            if keys[pygame.K_a]:
+                dx = -speed
+            if keys[pygame.K_d]:
+                dx = speed
 
-        if 'hero' in locals():
+            # Сохраняем текущие координаты для отката
+            prev_x, prev_y = hero.rect.x, hero.rect.y
             hero.update(dx, dy, screen_width, screen_height)
+
+            # Проверяем столкновение с NPC
+            if 'npc1' in locals() and pygame.sprite.collide_mask(hero, npc1):
+                # Вычисляем вектор от NPC к игроку
+                delta_x = hero.rect.centerx - npc1.rect.centerx
+                delta_y = hero.rect.centery - npc1.rect.centery
+                distance = math.hypot(delta_x, delta_y)
+
+                # Нормализуем вектор (делаем его длиной 1)
+                if distance != 0:
+                    delta_x /= distance
+                    delta_y /= distance
+
+                # Смещаем игрока на небольшое расстояние в противоположную сторону
+                repel_strength = 5  # Сила отталкивания
+                hero.rect.x += delta_x * repel_strength
+                hero.rect.y += delta_y * repel_strength
+
+                # Проверяем границы экрана после отталкивания
+                if hero.rect.left < 0:
+                    hero.rect.left = 0
+                if hero.rect.right > screen_width:
+                    hero.rect.right = screen_width
+                if hero.rect.top < 0:
+                    hero.rect.top = 0
+                if hero.rect.bottom > screen_height:
+                    hero.rect.bottom = screen_height
 
         screen.blit(background, (0, 0))
         all_sprites.draw(screen)
