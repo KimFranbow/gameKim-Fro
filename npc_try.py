@@ -90,23 +90,86 @@ class Music(pygame.sprite.Sprite):
         """Выключает музыку."""
         pygame.mixer.music.stop()
 
-class Mainhero(pygame.sprite.Sprite):
-    def __init__(self, all_sprites):
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
         super().__init__(all_sprites)
-        original_image = load_image("myhero.png")
-        scale_factor = 1
-        self.image = pygame.transform.scale(
-            original_image,
-            (int(original_image.get_width() * scale_factor), int(original_image.get_height() * scale_factor))
-        )
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect.x = 10
-        self.rect.y = 400
+        self.rect.topleft = (x, y)
+        self.direction = "down"  # Направление движения (по умолчанию "вниз")
+        self.animation_speed = 0.1  # Скорость анимации
+        self.frame_counter = 0
+        self.is_moving = False  # Флаг для отслеживания движения
+
+    def cut_sheet(self, sheet, columns, rows):
+        # Размеры спрайт-листа
+        sheet_width = sheet.get_width()
+        sheet_height = sheet.get_height()
+
+        # Размер одного кадра
+        frame_width = sheet_width // columns
+        frame_height = sheet_height // rows
+
+        # Проходим по всем строкам и столбцам
+        for j in range(rows):
+            for i in range(columns):
+                # Вычисляем координаты центра текущего кадра
+                frame_center_x = i * frame_width + frame_width // 2
+                frame_center_y = j * frame_height + frame_height // 2
+
+                # Вычисляем координаты верхнего левого угла для вырезания
+                frame_location = (frame_center_x - frame_width // 2, frame_center_y - frame_height // 2)
+
+                # Вырезаем кадр и добавляем его в список кадров
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, (frame_width, frame_height))))
 
     def update(self, dx=0, dy=0, screen_width=0, screen_height=0):
+        # Обновляем позицию
         self.rect.x += dx
         self.rect.y += dy
+
+        # Определяем направление движения
+        if dx > 0:
+            self.direction = "right"
+            self.is_moving = True
+        elif dx < 0:
+            self.direction = "left"
+            self.is_moving = True
+        elif dy > 0:
+            self.direction = "down"
+            self.is_moving = True
+        elif dy < 0:
+            self.direction = "up"
+            self.is_moving = True
+        else:
+            self.is_moving = False  # Герой не двигается
+
+        # Обновляем анимацию
+        if self.is_moving:
+            self.frame_counter += self.animation_speed
+            if self.frame_counter >= 1:
+                self.frame_counter = 0
+                self.cur_frame = (self.cur_frame + 1) % 4  # 4 кадра в строке
+
+        # Выбираем строку анимации в зависимости от направления
+        if self.direction == "right":
+            self.image = self.frames[self.cur_frame]
+        elif self.direction == "down":
+            self.image = self.frames[self.cur_frame + 4]
+        elif self.direction == "up":
+            self.image = self.frames[self.cur_frame + 8]
+        elif self.direction == "left":
+            self.image = self.frames[self.cur_frame + 12]
+
+        # Если герой не двигается, отображаем кадр покоя (второй столбец, вторая строка)
+        if not self.is_moving:
+            self.image = self.frames[5]  # Второй кадр второй строки
+
+        # Проверяем границы экрана
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > screen_width:
@@ -199,7 +262,7 @@ if __name__ == "__main__":
                             pygame.mixer.music.play(-1)  # Бесконечное воспроизведение
 
                         location1 = Button(all_sprites, "location1.png", "location1.png")
-                        hero = Mainhero(all_sprites)
+                        hero = AnimatedSprite(load_image("hero.png"), 4, 4, 10, 400)  # Используем AnimatedSprite для героя
                         npc1 = NPC(all_sprites, 'npc_1.png', 360, 210)
                         pygame.mouse.set_visible(False)
                         is_in_location1 = True
@@ -236,8 +299,7 @@ if __name__ == "__main__":
             if keys[pygame.K_d]:
                 dx = speed
 
-            # Сохраняем текущие координаты для отката
-            prev_x, prev_y = hero.rect.x, hero.rect.y
+            # Обновляем анимацию и позицию героя
             hero.update(dx, dy, screen_width, screen_height)
 
             # Проверяем столкновение с NPC
