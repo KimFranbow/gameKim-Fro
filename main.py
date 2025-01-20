@@ -152,7 +152,7 @@ if __name__ == "__main__":
     background = load_and_scale_image("background.png", screen_width, screen_height)
 
     # Загружаем музыку для главного меню
-    pygame.mixer.music.load('data\music.mp3')  # Убедитесь, что файл music.mp3 находится в той же директории
+    pygame.mixer.music.load('data\music.mp3')
     pygame.mixer.music.set_volume(0.5)  # Устанавливаем громкость (от 0.0 до 1.0)
 
     # Создаем кнопки
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     speed = 5
     dialog_window = None  # Окно диалога
 
-    # Включаем музыку при старте игры (если флаг is_music_on = True)
+    # Включаем музыку при старте игры
     bt_music.turn_music_on()
 
     while running:
@@ -195,7 +195,7 @@ if __name__ == "__main__":
                         pygame.mixer.music.stop()
                         # Загружаем и воспроизводим музыку для location1 (если флаг is_music_on = True)
                         if bt_music.is_music_on:
-                            pygame.mixer.music.load('data\location1_music.mp3')  # Убедитесь, что файл location1_music.mp3 существует
+                            pygame.mixer.music.load('data\location1_music.mp3')
                             pygame.mixer.music.play(-1)  # Бесконечное воспроизведение
 
                         location1 = Button(all_sprites, "location1.png", "location1.png")
