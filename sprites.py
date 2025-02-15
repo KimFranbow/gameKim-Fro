@@ -1,3 +1,5 @@
+import math
+
 import pygame
 from utils import load_and_scale_image, get_screen_size, load_image
 
@@ -72,7 +74,7 @@ class Music(pygame.sprite.Sprite):
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, all_sprites, sheet, columns, rows, x, y):
+    def __init__(self, all_sprites, sheet, columns, rows, x, y, collision_sprites):
         super().__init__(all_sprites)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
@@ -80,6 +82,8 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
+        self.collision_sprites = collision_sprites  # Спрайты, с которыми проверяем коллизии
+
         self.direction = "down"  # Направление движения (по умолчанию "вниз")
         self.animation_speed = 0.3  # Скорость анимации
         self.frame_counter = 0
@@ -89,6 +93,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.feet_rect = self.get_feet_rect()  # Получаем rect для ног
 
     def cut_sheet(self, sheet, columns, rows):
+        """Разрезает спрайт-лист на кадры."""
         self.rect = sheet.get_rect()
         self.frame_width = self.rect.width // columns
         self.frame_height = self.rect.height // rows
@@ -106,15 +111,48 @@ class AnimatedSprite(pygame.sprite.Sprite):
         return pygame.mask.from_surface(feet_surface)
 
     def get_feet_rect(self):
-        """Создает rect для ног"""
+        """Создает rect для ног."""
         feet_height = self.rect.height // 4  # Нижняя четверть спрайта
         feet_rect = pygame.Rect(self.rect.x, self.rect.y + self.rect.height - feet_height, self.rect.width, feet_height)
         return feet_rect
 
-    def update(self, dx=0, dy=0, screen_width=0, screen_height=0):
-        # Обновляем позицию
+    def move(self, dx, dy):
+        """Перемещает спрайт на указанное расстояние."""
         self.rect.x += dx
         self.rect.y += dy
+
+    def collision(self):
+        """Обрабатывает коллизии с другими спрайтами."""
+        for col in self.collision_sprites:
+            if isinstance(col, NPC): #если он встречается с Npc - другой колайд
+                if pygame.sprite.collide_mask(self, col):
+                    # Вычисляем вектор
+                    delta_x = self.rect.centerx - col.rect.centerx
+                    delta_y = self.rect.centery - col.rect.centery
+                    distance = math.hypot(delta_x, delta_y)
+
+                    # Вектор
+                    if distance != 0:
+                        delta_x /= distance
+                        delta_y /= distance
+
+                    # Смещаем игрока на небольшое расстояние в противоположную сторону
+                    repel_strength = 5
+                    self.rect.x += delta_x * repel_strength
+                    self.rect.y += delta_y * repel_strength
+                    break  # Прерываем цикл, чтобы не проверять остальные спрайты
+            if self.feet_mask.overlap(col.mask, (col.rect.x - self.feet_rect.x, col.rect.y - self.feet_rect.y)):
+                # Если есть коллизия, возвращаем спрайт на предыдущую позицию
+                self.rect = self.old_hero_rect.copy()
+                break  # Прерываем цикл, чтобы не проверять остальные спрайты
+
+    def update(self, dx=0, dy=0, screen_width=0, screen_height=0):
+        """Обновляет состояние спрайта."""
+        # Сохраняем текущую позицию для обработки коллизий
+        self.old_hero_rect = self.rect.copy()
+
+        # Обновляем позицию
+        self.move(dx, dy)
 
         # Определяем направление движения
         if dx > 0:
@@ -130,7 +168,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
             self.direction = "up"
             self.is_moving = True
         else:
-            self.is_moving = False  # Герой не двигается
+            self.is_moving = False
 
         # Обновляем анимацию
         if self.is_moving:
@@ -156,6 +194,9 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         # Обновляем rect для ног
         self.feet_rect = self.get_feet_rect()
+
+        # коллизии
+        self.collision()
 
         # Проверяем границы экрана
         if self.rect.left < 0:

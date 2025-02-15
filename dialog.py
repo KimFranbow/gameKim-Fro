@@ -5,28 +5,26 @@ from utils import load_and_scale_image, get_screen_size
 
 
 class DialogWindow(pygame.sprite.Sprite):
-    def __init__(self, all_sprites, npc, texts):
+    def __init__(self, all_sprites, image, texts):
         super().__init__(all_sprites)
         screen_width, screen_height = get_screen_size()
 
         # Загружаем изображение окна диалога
-        self.default_image = load_and_scale_image("dialog_window.png", screen_width, screen_height // 2.5, -1)
+        self.default_image = load_and_scale_image(image, screen_width, screen_height // 2.5, -1)
         self.image = self.default_image
         self.rect = self.image.get_rect()
         self.rect.topleft = (0, screen_height // 1.7)
 
-        # Загружаем изображение NPC и масштабируем его пропорционально
+        # # Загружаем изображение NPC и масштабируем его пропорционально
         # self.npc_image = npc.image
         # npc_width = screen_width // 8  # Ширина NPC как 1/8 ширины экрана
         # npc_height = int(self.npc_image.get_height() * (npc_width / self.npc_image.get_width()))  # Сохраняем соотношение сторон
         # self.npc_image = pygame.transform.scale(self.npc_image, (npc_width, npc_height))
-
-        # Позиция NPC в окне диалога
+        #
+        # # Позиция NPC в окне диалога
         # self.npc_rect = self.npc_image.get_rect()
         # self.npc_rect.topleft = (20, self.rect.y + 20)  # Позиция NPC в окне
-        #
-        # # Добавляем изображение NPC на окно диалога
-        # self.image.blit(self.npc_image, self.npc_rect.topleft)
+
 
         # Настройки текста
         self.font = pygame.font.Font(None, 36)
